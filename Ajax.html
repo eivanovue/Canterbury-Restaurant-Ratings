@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="UTF-8">
+    <title>Ajax assessment</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            //This is a globabl variable that stores information
+            //about the current page so that later we can
+            //use it in the search and autocomplete tasks!
+            var pageID = 1;
+            //Store 4 default autocomplete business name tags
+            var businessNames = ["A La Turka", "Cafe du Soleil", "McDonald's", "Beaver Lodge Cafe"];
+
+            //This function simply retrieves the results of the first
+            //page and appends them to the html table using a loop!
+            $.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=retrieve&page=1", function (data) {
+
+                var table = $('#resultsTable');
+                var ratingINC = 0;
+                $.each(data, function (index, value) {
+                    ratingINC++;
+                    table.append("<tr>" +
+                        "<td id='name'>" + value.business + "</td>" +
+                        "<td id='address'>" + value.address + "</td>" +
+                        "<td>" + value.rating + "</td>" +
+                        "<td>" + value.date + "</td>" +
+                        "<td><button id='rating" + ratingINC + "'>Get rating</button></tr>");
+                });
+            }, "json");
+
+
+            //This functions gets the number of pages and for
+            //each of them it creates a button using a
+            //for each loop.
+            $.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=pages", function (data) {
+                $.each(data, function (index, value) {
+                    for (var i = 1; i <= value; i++) {
+                        $('#button').append("<button id='" + i + "'>" + i + "</button> ")
+                    }
+                    //Show that the page is on the first page (highlight button 1)
+                    $("#1").css("background-color","black");
+                    $("#1").css("color","white");
+                    $("#1").css("border","none");
+                });
+            }, "json");
+
+            //This functions allows navigation through pages
+            //it removes data from table and then adds data
+            //from the desired page!
+            $("#button").on("click", "button", function () {
+                $("#button :button").css("border","none");
+                $("#button :button").css("background-color","");
+                $("#button :button").css("color","");
+                $(this).css("background-color","black");
+                $(this).css("color","white");
+                //Remove any table data
+                $('#resultsTable tr').has("td").remove();
+                var id = $(this).attr('id');
+                pageID = id;
+                $.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=retrieve&page=" + id, function (data) {
+                    var table = $('#resultsTable');
+                    var ratingINC = 0;
+                    $.each(data, function (index, value) {
+                        ratingINC++;
+                        table.append("<tr>" +
+                            "<td id='name'>" + value.business + "</td>" +
+                            "<td id='address'>" + value.address + "</td>" +
+                            "<td>" + value.rating + "</td>" +
+                            "<td>" + value.date + "</td>" +
+                            "<td><button id='rating" + ratingINC + "'>Get rating</button></tr>");
+                    });
+                }, "json");
+            });
+            //For this functon we are asked to get the rating of a
+            //specific restaurant and even though there is a
+            //.postcode column, I decided to use my own logic
+            //to find the postcode using split and other
+            //methods!
+            $("#resultsTable").on("click", "button", function () {
+                //Get the name of the desired restaurant
+                var name = $(this).closest("tr").find("#name").text();
+                //get desired restaurant's address to find rating of!
+                var address = $(this).closest("tr").find("#address").text();
+                $.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/rating.php?name=" + name, function (data) {
+                    //Here I basically split the whole address
+                    //then get the elements with the post code
+                    //contents and add them together!
+                    var array1 = address.split(' ');
+                    var postcode1 = array1[array1.length - 2].concat(array1[array1.length - 1]);
+                    console.log(postcode1);
+                    var ratingFound = 0;
+                    //This is a for loop to check incase there are
+                    //more than two restaurants with the same name
+                    //it checks the postcode of the one on the list
+                    //with the ones obtained from the get function
+                    //It looks messy but the logic is nice
+                    $.each(data, function (index, value) {
+                        var addressFromResults = value.address;
+                        var array2 = addressFromResults.split(' ');
+                        var postcode2 = array2[array2.length - 4].concat(array2[array2.length - 3]);
+                        //remove coma at the end from
+                        postcode2 = postcode2.replace(/,/g, "");
+                        //check to see if postcodes match
+                        if (postcode2.includes(postcode1)) {
+                            alert(value.business + " has a rating of " + value.rating);
+                            console.log(postcode2);
+                            ratingFound++;
+                        }
+                    });
+                    //If no reviews are found then alert error!
+                    if (ratingFound == 0) {
+                        alert("No rating avaialbe!")
+                    }
+                }, "json");
+            });
+
+            //When the page loads the autocomplete will automatically
+            //get data from the first page results of the business names
+            //and fill the array. Also, will add it to the source
+
+                //Add source to autocomplete
+                    $('#search').autocomplete({source: businessNames});
+
+
+
+            //This function is for the search button that will
+            //show the results on the table using the autocomplete!
+            $("#doSearch").click(function () {
+                var searchValue = $('#search').val();
+                //validation stuff!
+                if(!searchValue){
+                    $( "#errorMessage" ).append('Cannot search an empty string!');
+                }
+                else
+                {
+                    $.get("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php?op=searchname&name=" + searchValue, function (data) {
+                        var table = $('#resultsTable');
+                        var ratingINC = 0;
+                        var exists = 0;
+                            var resultsFound = 0;
+                            //Loop to check for results
+                            $.each(data, function (index, value) {
+                                resultsFound++;
+                            });
+                            //If results are found print them to table
+                        if( resultsFound !== 0) {
+                            //Remove any table data
+                            $('#resultsTable tr').has("td").remove();
+                            //Store business name for autocomplete
+                            var businessName = "";
+                            $.each(data, function (index, value) {
+                                ratingINC++;
+                                table.append("<tr>" +
+                                    "<td id='name'>" + value.business + "</td>" +
+                                    "<td id='address'>" + value.address + "</td>" +
+                                    "<td>" + value.rating + "</td>" +
+                                    "<td>" + value.date + "</td>" +
+                                    "<td><button id='rating" + ratingINC + "'>Get rating</button></tr>");
+                                businessName = value.business;
+
+                                for(var i = 0; i < businessNames.length; i++){
+                                    if(businessNames[i].includes(businessName)){
+                                        exists++;
+
+                                    }
+                                }
+                                if(exists===0)
+                                {
+                                    businessNames.push(businessName);
+                                }
+                            });
+                        }
+                        //If results are not found alert user
+                        if(ratingINC=== 0){
+                            alert("No results found for " + searchValue);
+                        }
+                        }, "json");
+                }
+            });
+        });
+
+
+    </script>
+
+    <style>
+		@import url(https://fonts.googleapis.com/css?family=Josefin+Sans);
+		
+      
+        h2 {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 33px;
+        }
+
+        button:focus {outline:0;}
+        button {
+            border: none;
+            background-color: white;
+        }
+        body {
+            background-color: #e1ceec;
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 400;
+            text-rendering: optimizeLegibility;
+        }
+
+        table {
+            background: white;
+			font-family: 'Josefin Sans', sans-serif;
+            border-collapse: collapse;
+            height: 320px;
+            margin: auto;
+            padding:5px;
+            width: 1000px;
+            animation: float 5s infinite;
+        }
+
+        th {
+            color:#D5DDE5;;
+            background: #0d0d0d	;
+            font-size:16px;
+            font-weight: 100;
+            padding:20px;
+            text-align:left;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+            vertical-align:middle;
+        }
+
+        tr {
+            border-top: 1px solid #C1C3D1;
+            color:#666B85;
+            font-size:12px;
+            font-weight:normal;
+            text-shadow: 0 1px 1px rgba(256, 256, 256, 0.1);
+        }
+
+        tr:hover td {
+            background: white;
+                color: black;
+
+        }
+
+        td {
+            background: #f0f0f0;
+            padding:10px;
+            text-align:left;
+            vertical-align:middle;
+            font-weight:300;
+            font-size:12px;
+            text-shadow: -1px -1px 1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+<center><h2 style="color: white">ajax assessment - emil ivanov</h2>
+
+<div id="button"><p style="color:white">Navigate through the pages</p></div></center>
+<br>
+<table id="resultsTable">
+    <tr>
+        <th>
+            Business
+        </th>
+        <th>
+            Address
+        </th>
+        <th>
+            Hygene
+        </th>
+        <th>
+            Date
+        </th>
+        <th>
+            Rating
+        </th>
+
+    </tr>
+
+</table>
+<br>
+
+<center>
+    <b><label style="color: red" id="errorMessage"></label></b><p style="color: white">Business name: <input id="search" type="text">
+<button id="doSearch">Search</button></p>
+
+<br>
+
+</center></body>
+</html>
